@@ -46,6 +46,7 @@ const generateInviteCode = () => {
 const getDaysTogether = (startDate) => {
   if (!startDate) return null;
   const start = new Date(startDate);
+  if (isNaN(start.getTime())) return null;
   const today = new Date();
   const startUTC = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
   const todayUTC = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
@@ -54,14 +55,13 @@ const getDaysTogether = (startDate) => {
   return diffDays >= 0 ? diffDays : 0;
 };
 
-const formatDate = (dateStr) => {
+const formatDate = (dateStr, options = { month: 'LONG', day: 'numeric', year: 'numeric' }) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', {
-    month: 'LONG',
-    day: 'numeric',
-    year: 'numeric'
-  }).toUpperCase();
+  if (isNaN(date.getTime())) {
+    return String(dateStr).toUpperCase();
+  }
+  return date.toLocaleDateString('en-US', options).toUpperCase();
 };
 
 const randomQuotes = [
@@ -1394,7 +1394,7 @@ function MemoriesPage({ couple, profile, setPage, setErrorMsg, setSuccessMsg }) 
               
               <div className="absolute bottom-0 left-0 right-0 p-4">
                 <h3 className="font-serif text-base text-white font-semibold leading-tight">{memory.title}</h3>
-                <p className="text-[10px] text-[#aaaaaa] mt-1 font-mono tracking-wider">{new Date(memory.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}</p>
+                <p className="text-[10px] text-[#aaaaaa] mt-1 font-mono tracking-wider">{formatDate(memory.date, {month: 'short', day: 'numeric', year: 'numeric'})}</p>
                 <p className="text-xs text-[#cccccc] mt-2 hidden group-hover:block transition-all duration-300 line-clamp-3">
                   {memory.description}
                 </p>
@@ -2203,17 +2203,20 @@ function DatePlannerPage({ couple, profile, setPage, setErrorMsg, setSuccessMsg 
   // Find nearest upcoming date
   const nearestDateId = useMemo(() => {
     const now = new Date();
-    // Filter dates that are today or in the future
+    // Filter dates that are today or in the future and have a valid format
     const upcoming = dates.filter((d) => {
+      if (!d.date) return false;
       const dt = new Date(`${d.date}T${d.time || '00:00'}`);
-      return dt >= now;
+      return !isNaN(dt.getTime()) && dt >= now;
     });
 
     if (upcoming.length === 0) return null;
     
-    // Sort upcoming ascending
+    // Sort upcoming ascending safely
     const sorted = [...upcoming].sort((a, b) => {
-      return new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`);
+      const dtA = new Date(`${a.date}T${a.time || '00:00'}`);
+      const dtB = new Date(`${b.date}T${b.time || '00:00'}`);
+      return dtA.getTime() - dtB.getTime();
     });
     return sorted[0].id;
   }, [dates]);
